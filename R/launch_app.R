@@ -25,8 +25,6 @@ app_launcher <- function(root_url = "http://www.adaptiveeartraining.com/test-dem
 
       names <- remaining_args$names
 
-      cat(file=stderr(), "names...", names, "\n")
-
       defaults <- remaining_args$defaults
 
       objs <- compile_shiny_objects(names, test_fun$types, defaults)
@@ -146,14 +144,6 @@ remaining_args <- function(test_fun, args_to_remove) {
 }
 
 
-# create_ui <- function(test_fun, arg_names, types = NULL) {
-#
-#   cat('Argument list should be: ', arg_names)
-#
-#   if(!setequal(names(arg_names), types)) {
-#     stop(paste0("The argument list must be: ", arg_names))
-#   }
-# }
 
 
 compile_shiny_objects <- function(names, types, defaults) {
@@ -162,13 +152,14 @@ compile_shiny_objects <- function(names, types, defaults) {
 
     title <- paste0(tools::toTitleCase(strsplit(name, split = "_")[[1]]), collapse = " ")
 
+
     shiny_fun <- types[[name]][["fun"]]
+
+    cat(file=stderr(), 'name:', name, '\n')
+    cat(file=stderr(), 'is fun?:', class(shiny_fun), '\n')
 
     args <- list(inputId = name, label = title) %>%
       sort_args(shiny_fun, name, defaults)
-
-    cat(file=stderr(), "shiny_fun", class(shiny_fun), "\n")
-    cat(file=stderr(), "shiny_fun", shiny_fun, "\n")
 
 
     do.call(shiny_fun, args = args)
