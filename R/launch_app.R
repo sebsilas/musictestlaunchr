@@ -38,7 +38,7 @@ app_launcher <- function(root_url = "https://adaptiveeartraining.com/test-demo/"
 
         # YO!
         pars <- defaults
-        url <- prepare_url_parameters(pars, root_url)
+        url <- prepare_url_parameters(pars, root_url, test_fun_name)
 
         shinyjs::runjs(paste0('window.open(\"',url,'\", "_blank").focus();'))
       })
@@ -154,9 +154,6 @@ compile_shiny_objects <- function(names, types, defaults) {
 
     shiny_fun <- types[[name]][["fun"]]
 
-    cat(file=stderr(), 'name:', name, '\n')
-    cat(file=stderr(), 'is fun?:', class(shiny_fun), '\n')
-
     args <- list(inputId = name, label = title) %>%
       sort_args(shiny_fun, name, defaults)
 
@@ -237,11 +234,15 @@ nested_list_to_renamed_list <- function(l, item_to_unnest) {
 
 
 
-prepare_url_parameters <- function(pars, root_url) {
+prepare_url_parameters <- function(pars, root_url, test_fun_name) {
 
   c <- purrr::map_chr(1:length(pars), function(i) {
     paste0(names(pars)[i], "=", pars[i])
   })
+
+  tf <- paste0("test_fun_name=", test_fun_name)
+
+  c <- c(tf, c)
 
   url_params <- paste0(c, collapse = "&")
 

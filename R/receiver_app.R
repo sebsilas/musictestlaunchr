@@ -12,9 +12,9 @@ receiver_app <- function() {
 
         query <- shiny::parseQueryString(session$clientData$url_search)
 
-        test_name <- query$test_name
+        test_fun_name <- query$test_fun_name
 
-        test_fun_all <- get_test_fun(test_name)
+        test_fun_all <- get_test_fun(test_fun_name)
         test_fun <- test_fun_all$test_fun
         types <- test_fun_all$types
         defaults <- test_fun_all$defaults
