@@ -24,6 +24,9 @@ app_launcher <- function(root_url = "http://www.adaptiveeartraining.com/test-dem
       remaining_args <- remaining_args(test_fun$test_fun,  test_fun$args_to_remove)
 
       names <- remaining_args$names
+
+      cat(file=stderr(), "names...", names, "\n")
+
       defaults <- remaining_args$defaults
 
       objs <- compile_shiny_objects(names, test_fun$types, defaults)
@@ -164,8 +167,9 @@ compile_shiny_objects <- function(names, types, defaults) {
     args <- list(inputId = name, label = title) %>%
       sort_args(shiny_fun, name, defaults)
 
-    print('shiny_fun')
-    print(shiny_fun)
+    cat(file=stderr(), "shiny_fun", class(shiny_fun), "\n")
+    cat(file=stderr(), "shiny_fun", shiny_fun, "\n")
+
 
     do.call(shiny_fun, args = args)
 
