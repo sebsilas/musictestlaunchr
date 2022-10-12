@@ -164,10 +164,9 @@ compile_shiny_objects <- function(names, types, defaults) {
     args <- list(inputId = name, label = title) %>%
       sort_args(shiny_fun, name, defaults)
 
-    print(name)
     print('shiny_fun')
     print(shiny_fun)
-    print(args)
+
     do.call(shiny_fun, args = args)
 
   })
