@@ -1,7 +1,7 @@
 
 # app_launcher()
 
-app_launcher <- function(root_url = "http://www.adaptiveeartraining.com/test-demo/") {
+app_launcher <- function(root_url = "https://adaptiveeartraining.com/test-demo/") {
 
   ui <- shiny::fluidPage(
     shiny::selectInput("test", label = "Test", choices = musicassessr::list_official_tests()),
@@ -30,7 +30,6 @@ app_launcher <- function(root_url = "http://www.adaptiveeartraining.com/test-dem
       objs <- compile_shiny_objects(names, test_fun$types, defaults)
 
       shiny::observeEvent(input$get_launch_code, {
-        #browser()
         code_to_write <- produce_args(test_fun_name, names, defaults) # shouldn't just be defaults!
         output$app_code <- shiny::renderText(code_to_write)
       })
