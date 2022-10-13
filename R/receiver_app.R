@@ -1,6 +1,6 @@
 
 
-receiver_app <- function(launcher_url = "https://adaptiveeartraining.com/test-launcher/") {
+test_launcher_receive <- function(launcher_url = "https://adaptiveeartraining.com/test-launcher/") {
 
 
   shiny::shinyApp(
@@ -35,7 +35,7 @@ receiver_app <- function(launcher_url = "https://adaptiveeartraining.com/test-la
 
             par_val <- default_if_no_parameter(par, query, defaults)
 
-            # par_val <- par_val %>% sort_type(par_val)
+            par_val <- par_val %>% sort_type(par_val)
 
             par_val
           })
@@ -71,6 +71,7 @@ sort_type <- function(types) {
   } else {
     warning("Unknown type.")
   }
+  par_val
 }
 
 get_correct_types <- function(test_fun_name) {

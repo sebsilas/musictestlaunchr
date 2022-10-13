@@ -1,5 +1,5 @@
 
-# app_launcher()
+# test_launcher_send()
 
 
 sort_dotted_function_call <- function(str, return_only_fun_name = TRUE, prefix_package_colon = FALSE) {
@@ -19,7 +19,7 @@ sort_dotted_function_call <- function(str, return_only_fun_name = TRUE, prefix_p
   s
 }
 
-app_launcher <- function(root_url = "https://adaptiveeartraining.com/test-demo/") {
+test_launcher_send <- function(root_url = "https://adaptiveeartraining.com/test-demo/") {
 
   ui <- shiny::fluidPage(
     shiny::selectInput("test", label = "Test", choices = musicassessr::list_official_tests()),
@@ -277,7 +277,7 @@ get_test_fun <- function(test_fun_name) {
     library(SST)
     args_to_remove <- SRT_args_to_remove
     types <- SRT_input_types
-    test_fun <- get(test_fun_name, env = rlang::search_env("package:SST"))
+    test_fun <- get("SST_standalone", env = rlang::search_env("package:SST"))
   } else if(test_fun_name == "SST_standalone") {
     library(SST)
     args_to_remove <- SST_args_to_remove
