@@ -1,6 +1,24 @@
 
 # app_launcher()
 
+
+sort_dotted_function_call <- function(str, return_only_fun_name = TRUE, prefix_package_colon = FALSE) {
+  # separate a call like Berkowitz::Berkowitz into components
+  s <- strsplit(str, split = "::") %>%
+    purrr::pluck(1)
+
+  if(return_only_fun_name) {
+    s <- s %>% purrr::pluck(2)
+  } else {
+    s <- as.list(s)
+    names(s) <- c("package", "fun")
+    if(prefix_package_colon) {
+      s$package <- paste0('package:', s$package)
+    }
+  }
+  s
+}
+
 app_launcher <- function(root_url = "https://adaptiveeartraining.com/test-demo/") {
 
   ui <- shiny::fluidPage(
@@ -13,10 +31,7 @@ app_launcher <- function(root_url = "https://adaptiveeartraining.com/test-demo/"
 
     output$reactive_ui <- shiny::renderUI({
 
-      test_fun_name <- input$test %>%
-        strsplit(., split = "::") %>%
-        purrr::pluck(1) %>%
-        purrr::pluck(2)
+      test_fun_name <- input$test %>% sort_dotted_function_call()
 
 
       test_fun <- get_test_fun(test_fun_name)
@@ -96,12 +111,6 @@ get_test_fun_name <- function(test_fun) {
 }
 
 
-css <- "#app_code { font-size:12px; font-style:italic;overflow-y:scroll; width: 400px;
-                                      background: ghostwhite; border: solid 1px #f1e9f5; border-radius: 3px;
-                                      margin: 10px; padding: 10px; visibility: hidden;}"
-
-
-
 
 produce_args <- function(test_fun_name, arg_names, arg_names_and_vals) {
 
@@ -144,7 +153,6 @@ remaining_args <- function(test_fun, args_to_remove) {
 
 
 
-
 compile_shiny_objects <- function(names, types, defaults) {
 
   tags <- purrr::map(names, function(name) {
@@ -179,7 +187,7 @@ sort_args <- function(args, shiny_fun, name, defaults) {
   input_types <- c(shiny::checkboxInput, shiny::sliderInput,
                    shiny::textInput, shiny::numericInput)
 
-  if(any(purrr::map_lgl(input_types, identical, shiny_fun))) {
+  if(purrr::some(input_types, identical, shiny_fun)) {
     args <- c(args, list("value" = defaults[[name]]))
   }
 
@@ -265,10 +273,11 @@ get_test_fun <- function(test_fun_name) {
     types <- PBET_input_types
     test_fun <- get(test_fun_name, env = rlang::search_env("package:PBET"))
   } else if(test_fun_name == "SRT_standalone") {
-    library(SRT)
+    warning("Using SST in place of SRT for now.")
+    library(SST)
     args_to_remove <- SRT_args_to_remove
     types <- SRT_input_types
-    test_fun <- get(test_fun_name, env = rlang::search_env("package:SRT"))
+    test_fun <- get(test_fun_name, env = rlang::search_env("package:SST"))
   } else if(test_fun_name == "SST_standalone") {
     library(SST)
     args_to_remove <- SST_args_to_remove
@@ -285,6 +294,32 @@ get_test_fun <- function(test_fun_name) {
 
   list(args_to_remove = args_to_remove, types = types, test_fun = test_fun, defaults = formals(test_fun))
 }
+
+
+get_item_bank <- function(item_bank_name) {
+
+  item_bank <- sort_dotted_function_call(item_bank_name, return_only_fun_name = FALSE, prefix_package_colon = TRUE)
+
+  if(item_bank_name == "Berkowitz::Berkowitz") {
+    library(Berkowitz)
+    item_bank_fun <- get(item_bank$fun, env = rlang::search_env(item_bank$package))
+  } else if(test_fun_name == "WJD::WJD") {
+    library(WJD)
+    item_bank_fun <- get(item_bank$fun, env = rlang::search_env(item_bank$package))
+  } else if(test_fun_name == "Slonimsky::Slonimsky") {
+    library(Slonimsky)
+    item_bank_fun <- get(item_bank$fun, env = rlang::search_env(item_bank$package))
+  } else {
+    stop("Item bank not known. Is it an official musicassessr item bank?
+         Check with musicassessr::list_official_tests()")
+  }
+
+  item_bank_fun
+}
+
+css <- "#app_code { font-size:12px; font-style:italic;overflow-y:scroll; width: 400px;
+                                      background: ghostwhite; border: solid 1px #f1e9f5; border-radius: 3px;
+                                      margin: 10px; padding: 10px; visibility: hidden;}"
 
 
 

@@ -1,6 +1,6 @@
 
 
-receiver_app <- function() {
+receiver_app <- function(launcher_url = "https://adaptiveeartraining.com/test-launcher/") {
 
 
   shiny::shinyApp(
@@ -12,32 +12,49 @@ receiver_app <- function() {
 
         query <- shiny::parseQueryString(session$clientData$url_search)
 
-        test_fun_name <- query$test_fun_name
+        if(length(query) == 0) {
 
-        test_fun_all <- get_test_fun(test_fun_name)
-        test_fun <- test_fun_all$test_fun
-        types <- test_fun_all$types
-        defaults <- test_fun_all$defaults
+          tags$p("You must launch this app via the URL: ",
+                 tags$a(href = launcher_url, launcher_url))
 
+        } else if(length(query) > 0 & is.null(query$test_fun_name)) {
+          tags$p("No test function name. You must launch this app via the URL: ",
+                 tags$a(href = launcher_url, launcher_url))
+        } else {
 
-        url_params <- names(query)
-        arg_list <- purrr::map(url_params, function(par) {
+          test_fun_name <- query$test_fun_name
 
-          par_val <- default_if_no_parameter(par, query, defaults)
-
-          # par_val <- par_val %>% sort_type(par_val)
-
-          par_val
-        })
-
-        names(arg_list) <- url_params
-
-        arg_list$app_name <- "demo"
-
-        arg_list$test_name <- NULL
+          test_fun_all <- get_test_fun(test_fun_name)
+          test_fun <- test_fun_all$test_fun
+          types <- test_fun_all$types
+          defaults <- test_fun_all$defaults
 
 
-        do.call(test_fun, args = arg_list)
+          url_params <- names(query)
+          arg_list <- purrr::map(url_params, function(par) {
+
+            par_val <- default_if_no_parameter(par, query, defaults)
+
+            # par_val <- par_val %>% sort_type(par_val)
+
+            par_val
+          })
+
+          names(arg_list) <- url_params
+
+          item_bank <- get_item_bank(arg_list$item_bank)
+
+          arg_list$app_name <- "demo"
+
+          arg_list[c("test_name", "test_fun_name")] <- NULL
+
+          arg_list$item_bank <- item_bank
+
+          do.call(test_fun, args = arg_list)
+
+        }
+
+
       })
     }
   )
