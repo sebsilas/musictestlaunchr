@@ -2,62 +2,83 @@
 # test_launcher_send()
 
 
-sort_dotted_function_call <- function(str, return_only_fun_name = TRUE, prefix_package_colon = FALSE) {
-  # separate a call like Berkowitz::Berkowitz into components
-  s <- strsplit(str, split = "::") %>%
-    purrr::pluck(1)
-
-  if(return_only_fun_name) {
-    s <- s %>% purrr::pluck(2)
-  } else {
-    s <- as.list(s)
-    names(s) <- c("package", "fun")
-    if(prefix_package_colon) {
-      s$package <- paste0('package:', s$package)
-    }
-  }
-  s
-}
-
 test_launcher_send <- function(root_url = "https://adaptiveeartraining.com/test-demo/") {
 
+  # The static UI elements
+  # (some dynamically created ones are in the server function below)
   ui <- shiny::fluidPage(
+    shinyjs::useShinyjs(),
+    shiny::titlePanel("musicassessr: App Launcher"),
     shiny::selectInput("test", label = "Test", choices = musicassessr::list_official_tests()),
     shiny::uiOutput("reactive_ui")
   )
 
-  # Define server logic required to draw a histogram
   server <- function(input, output) {
+
 
     output$reactive_ui <- shiny::renderUI({
 
-      test_fun_name <- input$test %>% sort_dotted_function_call()
+      # Sort test function (SAA_standalone vs. PBET_standalone etc.)
 
+      test_fun_name <- reactive({
+        input$test %>% sort_dotted_function_call()
+      })
 
-      test_fun <- get_test_fun(test_fun_name)
+      test_fun <- get_test_fun(test_fun_name())
 
+      # As well as the arguments we want users to be able to change (or not) and
+      # argument defaults
       remaining_args <- remaining_args(test_fun$test_fun,  test_fun$args_to_remove)
-
       names <- remaining_args$names
-
       defaults <- remaining_args$defaults
 
-      objs <- compile_shiny_objects(names, test_fun$types, defaults)
+      # Setup reactives
+      pars <- do.call("reactiveValues", defaults)
 
+
+      objs <- compile_shiny_objects(names = names,
+                                    types = test_fun$types,
+                                    values = defaults)
+
+      # Only update when a value changes
+
+      purrr::walk(names, function(n) {
+        observeEvent(input[[n]], {
+          shinyjs::hide("app_code")
+          output$app_code <- NULL
+          pars[[n]] <- input[[n]]
+        })
+      })
+
+      test_ui <- reactive({
+        print(input$test)
+        if(input$test == "PBET::PBET_standalone") {
+          shiny::selectInput("item_bank", label = "Item Bank", choices = itembankr::list_official_item_banks(default = "WJD"))
+        } else {
+          shiny::selectInput("item_bank", label = "Item Bank", choices = itembankr::list_official_item_banks())
+        }
+      })
+
+      # Get R code to launch the app
       shiny::observeEvent(input$get_launch_code, {
-        code_to_write <- produce_args(test_fun_name, names, defaults) # shouldn't just be defaults!
+        shinyjs::show("app_code")
+        code_to_write <- produce_args(test_fun_name(),
+                                  names(shiny::reactiveValuesToList(pars)),
+                                  shiny::reactiveValuesToList(pars))
+
         output$app_code <- shiny::renderText(code_to_write)
       })
 
+      # Launch the app in a browser
+
       shiny::observeEvent(input$launch_app, {
 
-        # YO!
-        pars <- defaults
-        url <- prepare_url_parameters(pars, root_url, test_fun_name)
+        url <- prepare_url_parameters(shiny::reactiveValuesToList(pars), root_url, test_fun_name())
 
         shinyjs::runjs(paste0('window.open(\"',url,'\", "_blank").focus();'))
       })
 
+      # The (dynamically created) UI elements
       shiny::tags$div(
 
         shinyjs::useShinyjs(),
@@ -68,10 +89,16 @@ test_launcher_send <- function(root_url = "https://adaptiveeartraining.com/test-
         shiny::fluidRow(
           shiny::column(4,
 
-                        shiny::titlePanel("App Launcher"),
+                if(input$test != "PDT::PDT_standalone") {
+                  tags$div(
 
-                        shiny::selectInput("item_bank", label = "Item Bank", choices = itembankr::list_official_item_banks()),
+                    test_ui(),
 
+                    shiny::selectInput("melody_sound",
+                                        label = "Playback Sound",
+                                        choices = sound_types,
+                                        selected = "piano"
+                                        ))},
 
                         objs$left),
           shiny::column(4, objs$right),
@@ -104,18 +131,101 @@ test_launcher_send <- function(root_url = "https://adaptiveeartraining.com/test-
 
 
 
+sound_types <- as.list(musicassessr::list_tone_sound_types()) %>%
+  stats::setNames(object = ., nm = unlist(.) %>% stringr::str_replace('[-_]', " ") %>% stringr::str_to_title())
+
+sort_dotted_function_call <- function(str, return_only_fun_name = TRUE, prefix_package_colon = FALSE) {
+  # separate a call like Berkowitz::Berkowitz into components
+  s <- strsplit(str, split = "::") %>%
+    purrr::pluck(1)
+
+  if(return_only_fun_name) {
+    s <- s %>% purrr::pluck(2)
+  } else {
+    s <- as.list(s)
+    names(s) <- c("package", "fun")
+    if(prefix_package_colon) {
+      s$package <- paste0('package:', s$package)
+    }
+  }
+  s
+}
 
 get_test_fun_name <- function(test_fun) {
   test_fun_name <- as.character(substitute(test_fun))
   test_fun_name <- paste0(test_fun_name[2], test_fun_name[1], test_fun_name[3])
 }
 
+nest_list <- function(l, nest_name) {
+  n <- names(l)
+  names(l) <- stringr::str_remove(n, nest_name)
+  l
+}
 
 
 produce_args <- function(test_fun_name, arg_names, arg_names_and_vals) {
 
-  arg_list <- purrr::map2_chr(arg_names, arg_names_and_vals, function(arg_name, val) {
-    paste0(arg_name, ' = ', deparse(val))
+  if(test_fun_name != "PDT_standalone") {
+
+    ix <- grep("num_items_", arg_names)
+    num_item_names <- arg_names[ix]
+
+    # for num_items
+    num_item_arg_names_and_vals <- arg_names_and_vals[num_item_names] %>%
+      nest_list("num_items_")
+    arg_names <- arg_names[-ix]
+    arg_names_and_vals <- arg_names_and_vals[-ix]
+    arg_names_and_vals$num_items <- num_item_arg_names_and_vals
+
+    # them arrhythmic/rhythmic
+    new_item_names <- names(arg_names_and_vals$num_items)
+
+    ix2 <- grep("arrhythmic_", new_item_names)
+    arrhythmic_names <- new_item_names[ix2]
+    arrhythmic_arg_names_and_vals <- arg_names_and_vals$num_items[arrhythmic_names] %>%
+      nest_list("arrhythmic_")
+    new_item_names2 <- new_item_names[-ix2]
+
+    ix3 <- grep("rhythmic_", new_item_names2)
+    rhythmic_names <- new_item_names2[ix3]
+    rhythmic_arg_names_and_vals <- arg_names_and_vals$num_items[rhythmic_names] %>%
+      nest_list("rhythmic_")
+    new_item_names3 <- new_item_names2[-ix3]
+
+
+    arg_names_and_vals$num_items[c("rhythmic_key_hard",
+                                   "rhythmic_key_easy",
+                                   "arrhythmic_key_hard",
+                                   "arrhythmic_key_easy")] <- NULL
+
+    # wjd
+    if(test_fun_name == "PBET_standalone") {
+      #browser()
+      ix4 <- grep("wjd_", new_item_names3)
+      wjd_names <- new_item_names3[ix4]
+
+
+
+      wjd_arg_names_and_vals <- arg_names_and_vals$num_items[wjd_names] %>%
+        nest_list("wjd_audio_")
+
+      arg_names_and_vals$num_items$arrhythmic <- arrhythmic_arg_names_and_vals
+      arg_names_and_vals$num_items$rhythmic <- rhythmic_arg_names_and_vals
+      arg_names_and_vals$num_items$wjd_audio <- wjd_arg_names_and_vals
+
+      arg_names_and_vals$num_items[c("wjd_audio_key_hard",
+                                     "wjd_audio_key_easy",
+                                     "wjd_audio_rhythmic_key_hard",
+                                     "wjd_audio_rhythmic_key_easy",
+                                     "wjd_audio_arrhythmic_key_hard",
+                                     "wjd_audio_arrhythmic_key_easy")] <- NULL
+    }
+
+  }
+
+
+  arg_list <- purrr::map2_chr(names(arg_names_and_vals), arg_names_and_vals, function(arg_name, val) {
+    paste0(arg_name, ' = ', deparse(val, width.cutoff = 500L))
   })
 
   arg_list <- arg_list %>% paste0(collapse = ", ")
@@ -135,6 +245,14 @@ remaining_args <- function(test_fun, args_to_remove) {
       nested_list_to_renamed_list(item_to_unnest = "num_items")
   }
 
+  if(identical(test_fun, PBET::PBET_standalone)) {
+
+    arg_names_and_vals <- arg_names_and_vals %>%
+      nested_list_to_renamed_list(item_to_unnest = "num_items_arrhythmic") %>%
+      nested_list_to_renamed_list(item_to_unnest = "num_items_rhythmic") %>%
+      nested_list_to_renamed_list(item_to_unnest = "num_items_wjd_audio")
+  }
+
   # remove "..."
 
   arg_names_and_vals$... <- NULL
@@ -146,6 +264,13 @@ remaining_args <- function(test_fun, args_to_remove) {
     arg_names <- names(arg_names_and_vals)
   }
 
+  if(!is.null(arg_names_and_vals$item_bank) & is.call(arg_names_and_vals$item_bank)) {
+    arg_names_and_vals$item_bank <- deparse(arg_names_and_vals$item_bank)
+  }
+
+  if(!is.null(arg_names_and_vals$melody_length) & is.call(arg_names_and_vals$melody_length)) {
+    arg_names_and_vals$melody_length <- eval(arg_names_and_vals$melody_length)
+  }
 
 
   list(names = arg_names, defaults = arg_names_and_vals)
@@ -153,7 +278,11 @@ remaining_args <- function(test_fun, args_to_remove) {
 
 
 
-compile_shiny_objects <- function(names, types, defaults) {
+compile_shiny_objects <- function(names, types, values) {
+
+  if(any(names == "item_bank")) {
+    names <- names[-which(names == "item_bank")] # we render this statically
+  }
 
   tags <- purrr::map(names, function(name) {
 
@@ -163,8 +292,7 @@ compile_shiny_objects <- function(names, types, defaults) {
     shiny_fun <- types[[name]][["fun"]]
 
     args <- list(inputId = name, label = title) %>%
-      sort_args(shiny_fun, name, defaults)
-
+      sort_args(shiny_fun, name, values)
 
     do.call(shiny_fun, args = args)
 
@@ -177,13 +305,13 @@ compile_shiny_objects <- function(names, types, defaults) {
   right_panel <- purrr::map(tags, function(x) if(grepl("checkbox", x) | grepl("slider", x)) x else NA)
   right_panel <- right_panel[!is.na(right_panel)]
 
-
   list("left" = shiny::tagList(left_panel), "right" = shiny::tagList(right_panel))
 
 }
 
 
 sort_args <- function(args, shiny_fun, name, defaults) {
+
   input_types <- c(shiny::checkboxInput, shiny::sliderInput,
                    shiny::textInput, shiny::numericInput)
 
@@ -196,9 +324,10 @@ sort_args <- function(args, shiny_fun, name, defaults) {
   }
 
   if(identical(shiny_fun, shiny::sliderInput)) {
-    warning("sliderInput built only to handle item length. If using new sliders, change this.")
+    warning("sliderInput built only to handle melody_length. If using new sliders, change this.")
     item_length <- defaults[[name]]
-    args <- c(args, list("min" = item_length[[2]]), "max" = item_length[[3]])
+    args <- c(args, list("min" = item_length[1]), "max" = item_length[2])
+    #args <- c(args, list("min" = item_length[[2]]), "max" = item_length[[3]])
 
   }
 
@@ -317,9 +446,14 @@ get_item_bank <- function(item_bank_name) {
   item_bank_fun
 }
 
+
+
 css <- "#app_code { font-size:12px; font-style:italic;overflow-y:scroll; width: 400px;
                                       background: ghostwhite; border: solid 1px #f1e9f5; border-radius: 3px;
                                       margin: 10px; padding: 10px; visibility: hidden;}"
+
+
+
 
 
 
