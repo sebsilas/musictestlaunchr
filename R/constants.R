@@ -7,7 +7,7 @@ general_musicassessr_types <- list(
                   "feedback" = "logical",
                   "SNR_test" = "logical",
                   "get_range" = "logical",
-                  "examples" = "list",
+                  "examples" = "numeric",
                   "final_results" = "logical",
                   "gold_msi" = "logical",
                   "melody_length" = "numeric",
@@ -23,7 +23,8 @@ general_musicassessr_types <- list(
                   "long_tone_trials_as_screening" = "logical",
                   "long_tone_trials_as_screening_failure_page" = "character",
                   "success_on_completion_page" = "character",
-                  "concise_wording" = "logical")
+                  "concise_wording" = "logical",
+                  "skip_setup" = "logical")
 
 
 general_musicassessr_args_to_remove <- c(

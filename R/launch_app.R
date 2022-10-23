@@ -37,7 +37,7 @@ test_launcher_send <- function(root_url = "https://adaptiveeartraining.com/test-
 
 
       objs <- compile_shiny_objects(names = names,
-                                    types = test_fun$types,
+                                    types = test_fun$input_types,
                                     values = defaults)
 
       # Only update when a value changes
@@ -83,7 +83,7 @@ test_launcher_send <- function(root_url = "https://adaptiveeartraining.com/test-
 
         shinyjs::useShinyjs(),
 
-        shiny::tags$head(shiny::tags$style(css)),
+        shiny::tags$head(shiny::tags$style(css_send)),
 
 
         shiny::fluidRow(
@@ -163,10 +163,9 @@ nest_list <- function(l, nest_name) {
 }
 
 
-produce_args <- function(test_fun_name, arg_names, arg_names_and_vals) {
-
+sort_arg_names_and_vals <- function(arg_names_and_vals, arg_names, test_fun_name) {
   if(test_fun_name != "PDT_standalone") {
-
+    # factor all this.. also in receiver_app.R around url_params
     ix <- grep("num_items_", arg_names)
     num_item_names <- arg_names[ix]
 
@@ -222,6 +221,12 @@ produce_args <- function(test_fun_name, arg_names, arg_names_and_vals) {
     }
 
   }
+  arg_names_and_vals
+}
+
+produce_args <- function(test_fun_name, arg_names, arg_names_and_vals) {
+
+  arg_names_and_vals <- sort_arg_names_and_vals(arg_names_and_vals, arg_names, test_fun_name)
 
 
   arg_list <- purrr::map2_chr(names(arg_names_and_vals), arg_names_and_vals, function(arg_name, val) {
@@ -393,35 +398,44 @@ get_test_fun <- function(test_fun_name) {
   if(test_fun_name == "SAA_standalone") {
     library(SAA)
     args_to_remove <- SAA_args_to_remove
-    types <- SAA_input_types
+    types <- SAA_types
+    input_types <- SAA_input_types
     test_fun <- get(test_fun_name, env = rlang::search_env("package:SAA"))
 
   } else if(test_fun_name == "PBET_standalone") {
     library(PBET)
     args_to_remove <- PBET_args_to_remove
-    types <- PBET_input_types
+    types <- PBET_types
+    input_types <- PBET_input_types
     test_fun <- get(test_fun_name, env = rlang::search_env("package:PBET"))
   } else if(test_fun_name == "SRT_standalone") {
     warning("Using SST in place of SRT for now.")
     library(SST)
     args_to_remove <- SRT_args_to_remove
-    types <- SRT_input_types
+    types <- SRT_types
+    input_types <- SRT_input_types
     test_fun <- get("SST_standalone", env = rlang::search_env("package:SST"))
   } else if(test_fun_name == "SST_standalone") {
     library(SST)
     args_to_remove <- SST_args_to_remove
-    types <- SST_input_types
+    types <- SST_types
+    input_types <- SST_input_types
     test_fun <- get(test_fun_name, env = rlang::search_env("package:SST"))
   } else if(test_fun_name == "PDT_standalone") {
     library(PDT)
     args_to_remove <- PDT_args_to_remove
-    types <- PDT_input_types
+    types <- PDT_types
+    input_types <- PDT_input_types
     test_fun <- get(test_fun_name, env = rlang::search_env("package:PDT"))
   } else {
     stop("Test function not known")
   }
 
-  list(args_to_remove = args_to_remove, types = types, test_fun = test_fun, defaults = formals(test_fun))
+  list(args_to_remove = args_to_remove,
+       types = types,
+       input_types = input_types,
+       test_fun = test_fun,
+       defaults = formals(test_fun))
 }
 
 
@@ -448,7 +462,7 @@ get_item_bank <- function(item_bank_name) {
 
 
 
-css <- "#app_code { font-size:12px; font-style:italic;overflow-y:scroll; width: 400px;
+css_send <- "#app_code { font-size:12px; font-style:italic;overflow-y:scroll; width: 400px;
                                       background: ghostwhite; border: solid 1px #f1e9f5; border-radius: 3px;
                                       margin: 10px; padding: 10px; visibility: hidden;}"
 
